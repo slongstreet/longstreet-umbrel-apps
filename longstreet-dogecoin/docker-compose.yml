@@ -7,8 +7,7 @@ services:
       APP_PORT: 8080
 
   dogecoind:
-    # TODO: replace with the digest printed by the build workflow
-    image: ghcr.io/TODO-your-handle/dogecoind:1.14.9
+    image: ghcr.io/slongstreet/dogecoind:1.14.9
     restart: on-failure
     stop_grace_period: 15m
     user: "1000:1000"

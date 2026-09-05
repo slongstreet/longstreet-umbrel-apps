@@ -7,8 +7,7 @@ services:
       APP_PORT: 8080
 
   litecoind:
-    # TODO: replace with the digest printed by the build workflow
-    image: ghcr.io/TODO-your-handle/litecoind:0.21.4
+    image: ghcr.io/slongstreet/litecoind:0.21.4
     restart: on-failure
     stop_grace_period: 15m          # litecoind flushes dbcache on shutdown; do not cut it short
     user: "1000:1000"

@@ -9,14 +9,14 @@ description: >-
   apps on this Umbrel (for example a merged-mining Stratum server). Wallet is
   disabled; this node is for validation and block-template generation.
 developer: Longstreet Labs
-website: https://github.com/TODO-your-handle/longstreet-umbrel-apps
+website: https://github.com/slongstreet/longstreet-umbrel-apps
 dependencies: []
-repo: https://github.com/TODO-your-handle/longstreet-umbrel-apps
-support: https://github.com/TODO-your-handle/longstreet-umbrel-apps/issues
+repo: https://github.com/slongstreet/longstreet-umbrel-apps
+support: https://github.com/slongstreet/longstreet-umbrel-apps/issues
 port: 2140          # TODO: confirm unused on your Umbrel
 gallery: []
 path: ""
 defaultUsername: ""
 defaultPassword: ""
 submitter: Longstreet Labs
-submission: https://github.com/TODO-your-handle/longstreet-umbrel-apps
+submission: https://github.com/slongstreet/longstreet-umbrel-apps
