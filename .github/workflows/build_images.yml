@@ -18,14 +18,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # TODO: pin the versions you want and paste the SHA256 of the
-          # x86_64-linux-gnu tarball from each project's signed SHA256SUMS.asc.
+          # Verified 2026-09-04 against each project's published SHA256SUMS.
           - name: litecoind
-            version: "0.21.4"
-            sha256: "TODO"
+            version: "0.21.5.6"
+            sha256: "3c0a217651a431ef446641669a0b74ce7dbcd9b9ed1a118fc830b8f6779ee83f"
           - name: dogecoind
             version: "1.14.9"
-            sha256: "TODO"
+            sha256: "4f227117b411a7c98622c970986e27bcfc3f547a72bef65e7d9e82989175d4f8"
 
     steps:
       - uses: actions/checkout@v4
