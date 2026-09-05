@@ -1,0 +1,46 @@
+version: "3.7"
+
+services:
+  app_proxy:
+    environment:
+      APP_HOST: longstreet-dogecoin_status_1
+      APP_PORT: 8080
+
+  dogecoind:
+    # TODO: replace with the digest printed by the build workflow
+    image: ghcr.io/TODO-your-handle/dogecoind:1.14.9
+    restart: on-failure
+    stop_grace_period: 15m
+    user: "1000:1000"
+    volumes:
+      - ${APP_DATA_DIR}/data/dogecoin:/data/.dogecoin
+      - ${APP_DATA_DIR}/dogecoin.conf:/data/.dogecoin/dogecoin.conf:ro
+    ports:
+      - "${APP_LONGSTREET_DOGECOIN_P2P_PORT}:${APP_LONGSTREET_DOGECOIN_P2P_PORT}"   # inbound peers (optional)
+    command:
+      - -datadir=/data/.dogecoin
+      - -rpcuser=${APP_LONGSTREET_DOGECOIN_RPC_USER}
+      - -rpcpassword=${APP_LONGSTREET_DOGECOIN_RPC_PASS}
+      - -rpcport=${APP_LONGSTREET_DOGECOIN_RPC_PORT}
+      - -port=${APP_LONGSTREET_DOGECOIN_P2P_PORT}
+      - -zmqpubhashblock=tcp://0.0.0.0:${APP_LONGSTREET_DOGECOIN_ZMQ_HASHBLOCK_PORT}
+      - -zmqpubrawblock=tcp://0.0.0.0:${APP_LONGSTREET_DOGECOIN_ZMQ_RAWBLOCK_PORT}
+    networks:
+      default:
+        ipv4_address: ${APP_LONGSTREET_DOGECOIN_NODE_IP}
+
+  status:
+    image: python:3.12-alpine
+    restart: on-failure
+    user: "1000:1000"
+    volumes:
+      - ${APP_DATA_DIR}/status:/app:ro
+    environment:
+      COIN_NAME: Dogecoin
+      RPC_URL: http://${APP_LONGSTREET_DOGECOIN_NODE_IP}:${APP_LONGSTREET_DOGECOIN_RPC_PORT}
+      RPC_USER: ${APP_LONGSTREET_DOGECOIN_RPC_USER}
+      RPC_PASS: ${APP_LONGSTREET_DOGECOIN_RPC_PASS}
+    command: python /app/app.py
+    networks:
+      default:
+        ipv4_address: ${APP_LONGSTREET_DOGECOIN_STATUS_IP}

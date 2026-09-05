@@ -1,0 +1,22 @@
+manifestVersion: 1
+id: longstreet-litecoin
+category: bitcoin
+name: Litecoin Node
+version: "0.21.4"   # TODO: match the Litecoin Core version baked into the image
+tagline: Run your own Litecoin Core full node
+description: >-
+  Litecoin Core full node with RPC and ZMQ block notifications exposed to other
+  apps on this Umbrel (for example a merged-mining Stratum server). Wallet is
+  disabled; this node is for validation and block-template generation.
+developer: Longstreet Labs
+website: https://github.com/TODO-your-handle/longstreet-umbrel-apps
+dependencies: []
+repo: https://github.com/TODO-your-handle/longstreet-umbrel-apps
+support: https://github.com/TODO-your-handle/longstreet-umbrel-apps/issues
+port: 2140          # TODO: confirm unused on your Umbrel
+gallery: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""
+submitter: Longstreet Labs
+submission: https://github.com/TODO-your-handle/longstreet-umbrel-apps

@@ -1,0 +1,22 @@
+manifestVersion: 1
+id: longstreet-dogecoin
+category: bitcoin
+name: Dogecoin Node
+version: "1.14.9"   # TODO: match the Dogecoin Core version baked into the image
+tagline: Run your own Dogecoin Core full node
+description: >-
+  Dogecoin Core full node with RPC and ZMQ block notifications exposed to other
+  apps on this Umbrel. Provides createauxblock / submitauxblock for AuxPoW
+  merged mining alongside the Litecoin Node app. Wallet is disabled.
+developer: Longstreet Labs
+website: https://github.com/TODO-your-handle/longstreet-umbrel-apps
+dependencies: []
+repo: https://github.com/TODO-your-handle/longstreet-umbrel-apps
+support: https://github.com/TODO-your-handle/longstreet-umbrel-apps/issues
+port: 2141          # TODO: confirm unused on your Umbrel
+gallery: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""
+submitter: Longstreet Labs
+submission: https://github.com/TODO-your-handle/longstreet-umbrel-apps
