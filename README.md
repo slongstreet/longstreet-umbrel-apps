@@ -8,17 +8,36 @@ Apps:
 | `longstreet-dogecoin` | Dogecoin Core full node (wallet disabled) + sync status page | `APP_LONGSTREET_DOGECOIN_*` |
 | `longstreet-miner` | *(future)* solo merged-mining Stratum engine, depends on both nodes | — |
 
+## Versioning and releases
+
+Each app has its own semantic version in `umbrel-app.yml` (`1.0.0`, `1.0.1`, ...),
+independent of the Core version it ships. umbrelOS offers an update whenever the
+version string in this repo differs from the installed one, so **every change to an
+app directory must bump its version**. CI fails the push if you forget.
+
+The Core version and tarball checksum for each image live in
+`images/<name>/version.env`. Every push to `main` runs the **Build node images**
+workflow, which:
+
+1. Builds `ghcr.io/<owner>/<name>:<VERSION>` only if that tag does not exist yet
+   (re-run it from the Actions tab with **force** to rebuild anyway).
+2. Writes the resulting digest into the app's `docker-compose.yml`, bumps the app's
+   patch version if this push did not already bump it, and pushes that commit to `main`.
+
+So to ship a new Core release: edit `version.env`, push, and let CI pin and bump.
+To ship any other change (status page, `.conf`, ports): bump `version` yourself
+and update `releaseNotes` in `umbrel-app.yml`. umbrelOS re-reads community stores
+periodically and pulls the newly pinned images when the user accepts the update.
+
 ## First-time setup
 
-1. Search the repo for `TODO` and fill in: your GitHub handle, pinned Litecoin/Dogecoin
-   versions, the tarball SHA256 sums, and check that the `port:` values in each
-   `umbrel-app.yml` and the `10.21.42.x` IPs in each `exports.sh` are unused on your Umbrel.
-2. Push to GitHub. Run the **Build node images** workflow (Actions tab). Copy the
-   `ghcr.io/...@sha256:...` digest it prints into each app's `docker-compose.yml`.
-   Make the GHCR packages public (or umbrelOS won't be able to pull them).
+1. Check that the `port:` values in each `umbrel-app.yml` and the `10.21.42.x` IPs in
+   each `exports.sh` are unused on your Umbrel.
+2. Push to GitHub and let the **Build node images** workflow run. Make the GHCR
+   packages public (or umbrelOS won't be able to pull them).
 3. On umbrelOS: Settings → App Store → Community App Stores → add this repo's URL.
 4. Install **Litecoin Node** first. Watch it over SSH:
-   `docker logs -f longstreet-litecoin_litecoind_1`. Open the app tile for sync %.
+   `docker logs -f longstreet-litecoin_litecoind_1`. Open the app tile for the sync dashboard.
 5. Install **Dogecoin Node**. It syncs slower than Litecoin — that's expected.
 6. After both report `initialblockdownload: false`, lower `dbcache` in the `.conf`
    files (~450) and restart the apps to give RAM back to the rest of the box.

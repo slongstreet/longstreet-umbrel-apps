@@ -1,37 +1,88 @@
 name: Build node images
 
+# Runs on every push to main. Building is idempotent: an image is only built
+# when ghcr.io/<owner>/<name>:<VERSION> (from images/<name>/version.env) does
+# not exist yet, so routine pushes finish in seconds without changing digests.
+# Whenever a digest changes, the "pin" job writes it into the app's
+# docker-compose.yml, bumps the app's patch version so umbrelOS offers the
+# update, and pushes that commit back to main.
+
 on:
   workflow_dispatch:
+    inputs:
+      force:
+        description: Rebuild images even if the tag already exists
+        type: boolean
+        default: false
   push:
     branches: [main]
-    paths:
-      - "images/**"
-      - ".github/workflows/build-images.yml"
+
+concurrency:
+  group: build-images-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
 
 jobs:
+  # Fail fast if an app changed but its manifest version did not: umbrelOS only
+  # offers an update when the version string differs from the installed one.
+  check-versions:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify changed apps bumped their version
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BEFORE" 2>/dev/null; then
+            BEFORE=$(git rev-parse HEAD~1 2>/dev/null || echo "")
+          fi
+          [ -n "$BEFORE" ] || { echo "no previous commit; skipping"; exit 0; }
+          status=0
+          for app in longstreet-*/; do
+            app=${app%/}
+            [ -f "$app/umbrel-app.yml" ] || continue
+            changed=$(git diff --name-only "$BEFORE" HEAD -- "$app" | grep -v '\.gitkeep$' || true)
+            [ -n "$changed" ] || continue
+            old=$(git show "$BEFORE:$app/umbrel-app.yml" 2>/dev/null | sed -n 's/^version: *"\{0,1\}\([^" #]*\)"\{0,1\}.*/\1/p' || true)
+            new=$(sed -n 's/^version: *"\{0,1\}\([^" #]*\)"\{0,1\}.*/\1/p' "$app/umbrel-app.yml")
+            if [ "$old" = "$new" ]; then
+              echo "::error file=$app/umbrel-app.yml::$app changed ($(echo "$changed" | tr '\n' ' ')) but version is still $new. Bump it so umbrelOS offers the update."
+              status=1
+            else
+              echo "$app: $old -> $new"
+            fi
+          done
+          exit $status
+
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write        # lets GITHUB_TOKEN push to ghcr.io/<owner>/*
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # Verified 2026-09-04 against each project's published SHA256SUMS.
-          - name: litecoind
-            version: "0.21.5.6"
-            sha256: "3c0a217651a431ef446641669a0b74ce7dbcd9b9ed1a118fc830b8f6779ee83f"
-          - name: dogecoind
-            version: "1.14.9"
-            sha256: "4f227117b411a7c98622c970986e27bcfc3f547a72bef65e7d9e82989175d4f8"
-
+        name: [litecoind, dogecoind]
+    outputs:
+      litecoind: ${{ steps.result.outputs.litecoind }}
+      dogecoind: ${{ steps.result.outputs.dogecoind }}
     steps:
       - uses: actions/checkout@v4
 
-      # GHCR requires a lowercase namespace; GitHub handles may not be.
-      - id: owner
-        run: echo "lc=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+      - id: meta
+        name: Read images/${{ matrix.name }}/version.env
+        run: |
+          set -euo pipefail
+          source "images/${{ matrix.name }}/version.env"
+          [ -n "${VERSION:-}" ] && [ -n "${SHA256:-}" ] || { echo "VERSION/SHA256 missing"; exit 1; }
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+          # GHCR requires a lowercase namespace; GitHub handles may not be.
+          echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${{ matrix.name }}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/login-action@v3
         with:
@@ -39,7 +90,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - id: existing
+        name: Check whether ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.version }} already exists
+        run: |
+          set -euo pipefail
+          ref="${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.version }}"
+          if [ "${{ inputs.force }}" != "true" ] && digest=$(docker buildx imagetools inspect "$ref" --format '{{json .Manifest.Digest}}' 2>/dev/null); then
+            digest=${digest//\"/}
+            echo "found $ref@$digest"
+            echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          else
+            echo "not found (or force=true); will build"
+          fi
+
+      - uses: docker/setup-buildx-action@v3
+        if: steps.existing.outputs.digest == ''
+
       - id: build
+        if: steps.existing.outputs.digest == ''
         uses: docker/build-push-action@v6
         with:
           context: images/${{ matrix.name }}
@@ -47,18 +115,80 @@ jobs:
           push: true
           provenance: false          # plain image manifest -> simple digest to pin
           build-args: |
-            VERSION=${{ matrix.version }}
-            SHA256=${{ matrix.sha256 }}
+            VERSION=${{ steps.meta.outputs.version }}
+            SHA256=${{ steps.meta.outputs.sha256 }}
           tags: |
-            ghcr.io/${{ steps.owner.outputs.lc }}/${{ matrix.name }}:${{ matrix.version }}
-            ghcr.io/${{ steps.owner.outputs.lc }}/${{ matrix.name }}:latest
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.version }}
+            ${{ steps.meta.outputs.image }}:latest
 
-      - name: Print the line to pin in docker-compose.yml
+      - id: result
+        name: Publish digest
         run: |
-          {
-            echo "### ${{ matrix.name }} ${{ matrix.version }}"
-            echo
-            echo '```'
-            echo "image: ghcr.io/${{ steps.owner.outputs.lc }}/${{ matrix.name }}:${{ matrix.version }}@${{ steps.build.outputs.digest }}"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          digest="${{ steps.existing.outputs.digest || steps.build.outputs.digest }}"
+          [ -n "$digest" ] || { echo "no digest"; exit 1; }
+          ref="${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.version }}@$digest"
+          echo "${{ matrix.name }}=$ref" >> "$GITHUB_OUTPUT"
+          echo "### ${{ matrix.name }}: \`$ref\`" >> "$GITHUB_STEP_SUMMARY"
+
+  # Write new digests into the apps' compose files, bump the app version so
+  # umbrelOS notices, and push. Pushes made with GITHUB_TOKEN do not trigger
+  # another workflow run, so this cannot loop.
+  pin:
+    needs: [build]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Pin digests and bump versions
+        env:
+          REFS: |
+            litecoind ${{ needs.build.outputs.litecoind }}
+            dogecoind ${{ needs.build.outputs.dogecoind }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          bumped=""
+          while read -r name ref; do
+            [ -n "$name" ] && [ -n "$ref" ] || continue
+            for compose in longstreet-*/docker-compose.yml; do
+              grep -qE "image: ghcr\.io/[^/]+/$name:" "$compose" || continue
+              app=$(dirname "$compose")
+              if grep -qF "image: $ref" "$compose"; then
+                echo "$app: already pinned to $ref"
+                continue
+              fi
+              sed -i -E "s#image: ghcr\.io/[^/]+/$name:[^ ]+#image: $ref#" "$compose"
+              echo "$app: pinned $ref"
+              # Bump the patch version unless this push already changed it.
+              manifest="$app/umbrel-app.yml"
+              cur=$(sed -n 's/^version: *"\{0,1\}\([^" #]*\)"\{0,1\}.*/\1/p' "$manifest")
+              prev=""
+              if [ -n "$BEFORE" ] && git cat-file -e "$BEFORE" 2>/dev/null; then
+                prev=$(git show "$BEFORE:$manifest" 2>/dev/null | sed -n 's/^version: *"\{0,1\}\([^" #]*\)"\{0,1\}.*/\1/p' || true)
+              fi
+              if [ -n "$prev" ] && [ "$prev" != "$cur" ]; then
+                echo "$app: version already bumped in this push ($prev -> $cur)"
+              else
+                next=$(echo "$cur" | awk -F. '{ $NF = $NF + 1; print }' OFS=.)
+                sed -i -E "s/^version: *\"?[^\" #]+\"?/version: \"$next\"/" "$manifest"
+                echo "$app: version $cur -> $next"
+              fi
+              bumped="$bumped $app"
+            done
+          done <<< "$REFS"
+
+          if git diff --quiet; then
+            echo "Nothing to pin."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A longstreet-*/docker-compose.yml longstreet-*/umbrel-app.yml
+          git commit -m "ci: pin new image digests for$bumped"
+          git push origin HEAD:main
+          git show --stat HEAD >> "$GITHUB_STEP_SUMMARY"
