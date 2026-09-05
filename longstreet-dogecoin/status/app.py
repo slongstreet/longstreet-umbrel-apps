@@ -4,7 +4,10 @@ Stdlib only so it runs on the stock python:alpine image."""
 import base64
 import json
 import os
+import threading
+import time
 import urllib.request
+from collections import deque
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 COIN = os.environ.get("COIN_NAME", "Node")
@@ -26,6 +29,46 @@ def rpc(method, params=None):
         return json.load(resp)["result"]
 
 
+# Rough time-to-sync estimate. Core exposes no ETA, so do what its GUI does:
+# sample verificationprogress over time and extrapolate the recent rate.
+# verificationprogress is already weighted by expected transaction count, so the
+# rate is roughly linear in wall-clock time, but treat the result as a ballpark.
+SAMPLE_EVERY = 30          # seconds
+WINDOW = 45 * 60           # keep 45 min of samples
+MIN_SPAN = 5 * 60          # need at least 5 min of history before estimating
+_samples = deque()         # (monotonic time, progress)
+_lock = threading.Lock()
+
+
+def _sampler():
+    while True:
+        try:
+            b = rpc("getblockchaininfo")
+            now = time.monotonic()
+            with _lock:
+                _samples.append((now, b.get("verificationprogress", 0)))
+                while _samples and now - _samples[0][0] > WINDOW:
+                    _samples.popleft()
+        except Exception:  # noqa: BLE001 - node down; drop history so we restart clean
+            with _lock:
+                _samples.clear()
+        time.sleep(SAMPLE_EVERY)
+
+
+def eta_seconds(progress):
+    """Seconds until progress reaches 1.0, or None if we can't say yet."""
+    with _lock:
+        if len(_samples) < 2:
+            return None
+        t0, p0 = _samples[0]
+        t1, p1 = _samples[-1]
+    span = t1 - t0
+    if span < MIN_SPAN or p1 <= p0:
+        return None
+    rate = (p1 - p0) / span
+    return max(0.0, (1.0 - progress) / rate)
+
+
 def snapshot():
     b = rpc("getblockchaininfo")
     n = rpc("getnetworkinfo")
@@ -39,6 +82,7 @@ def snapshot():
     if not ibd and progress > 0.9999:
         progress = 1.0
     return {
+        "eta": None if progress >= 1.0 else eta_seconds(progress),
         "ok": True,
         "chain": b.get("chain"),
         "blocks": b.get("blocks", 0),
@@ -85,6 +129,9 @@ h1{margin:0;font-size:1.45rem;font-weight:700;letter-spacing:-.01em}
 .pct small{font-size:1.2rem;color:var(--muted);font-weight:600;margin-left:.15rem}
 .heights{color:var(--muted);font-variant-numeric:tabular-nums}
 .heights b{color:var(--text);font-weight:600}
+.eta{display:block;text-align:right;margin-top:.15rem;font-size:.85rem}
+.eta b{color:var(--accent)}
+@media(max-width:480px){.eta{text-align:left}}
 .bar{height:12px;border-radius:999px;background:#0e1220;border:1px solid var(--line);overflow:hidden;margin-top:1.1rem;position:relative}
 .bar i{display:block;height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 70%,#fff 0%),var(--accent));transition:width .8s cubic-bezier(.2,.8,.2,1);position:relative}
 .bar i::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);background-size:200% 100%;animation:sheen 2.4s linear infinite}
@@ -125,7 +172,7 @@ footer{color:var(--muted);font-size:.8rem;margin-top:1.5rem;display:flex;justify
 <section class="hero">
   <div class="row">
     <div class="pct"><span id="pct">—</span><small>%</small></div>
-    <div class="heights">Block <b id="blocks">—</b> of <b id="headers">—</b> headers</div>
+    <div class="heights">Block <b id="blocks">—</b> of <b id="headers">—</b> headers<span id="eta" class="eta" hidden></span></div>
   </div>
   <div class="bar" id="bar"><i id="fill"></i></div>
   <div class="badges" id="badges"></div>
@@ -167,6 +214,9 @@ async function tick(){
     $("bar").classList.toggle("done", d.progress >= 1);
     $("blocks").textContent = n(d.blocks); $("headers").textContent = n(d.headers);
     const synced = !d.ibd && d.progress >= 1;
+    const eta = $("eta");
+    if (synced || d.eta == null) { eta.hidden = true; }
+    else { eta.hidden = false; eta.innerHTML = d.eta > 14*86400 ? "more than <b>2 weeks</b> to go" : "roughly <b>" + dur(d.eta) + "</b> remaining"; }
     $("dot").className = "dot " + (synced ? "ok" : "warn");
     $("state").textContent = synced ? "Synced" : d.ibd ? "Initial block download" : "Catching up";
     $("ver").textContent = d.version ? "· " + d.version : "";
@@ -226,4 +276,5 @@ class H(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    threading.Thread(target=_sampler, daemon=True).start()
     HTTPServer(("0.0.0.0", 8080), H).serve_forever()

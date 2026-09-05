@@ -52,17 +52,59 @@ Run the same check locally with `scripts/check-core-updates.sh --dry-run` (needs
 4. Install **Litecoin Node** first. Watch it over SSH:
    `docker logs -f longstreet-litecoin_litecoind_1`. Open the app tile for the sync dashboard.
 5. Install **Dogecoin Node**. It syncs slower than Litecoin — that's expected.
-6. After both report `initialblockdownload: false`, lower `dbcache` in the `.conf`
-   files (~450) and restart the apps to give RAM back to the rest of the box.
+6. After both report `initialblockdownload: false`, lower `dbcache` (~450) via a
+   local override file (next section) and restart the apps to give RAM back to the box.
+
+## Local configuration overrides
+
+App updates copy every file in this repo over the app's directory on the Umbrel, so
+edits to `litecoin.conf` / `dogecoin.conf` there are lost on the next update. Put your
+own settings in the data directory instead, which is never touched:
+
+```sh
+# on the Umbrel
+echo "dbcache=450" >> ~/umbrel/app-data/longstreet-litecoin/data/litecoin/litecoin.local.conf
+echo "dbcache=450" >> ~/umbrel/app-data/longstreet-dogecoin/data/dogecoin/dogecoin.local.conf
+```
+
+then restart the app. `entrypoint.sh` assembles the runtime config as
+*your overrides* + *shipped conf* + *RPC credentials*. Core keeps the first value it
+sees for an option, so anything in the local file wins. (Dogecoin 1.14 predates
+`includeconf`, which is why it's done this way for both.)
+
+## Bootstrapping the initial sync
+
+Neither Litecoin Core 0.21 nor Dogecoin Core 1.14 supports UTXO snapshots
+(`assumeutxo`), so every block is validated locally on first run. You can still skip
+the *download*:
+
+- **Copy a data directory from a node you already run.** Stop both nodes, then rsync
+  the `blocks/` and `chainstate/` folders into
+  `~/umbrel/app-data/longstreet-<coin>/data/<coin>/` and
+  `sudo chown -R 1000:1000` the result. Fastest option, and it adds no trust because
+  it is your own node's validated output.
+- **Drop a `bootstrap.dat` into that same directory** and start the app. Both cores
+  import it automatically (renaming it `bootstrap.dat.old` when done) and fully validate
+  every block, so the file's origin does not matter. This only saves bandwidth, not
+  CPU time, so it mainly helps on slow or metered connections.
+- Third-party chainstate snapshots exist for both coins. Avoid them for a node that
+  feeds a miner: a bad chainstate means mining on the wrong chain with nothing to warn you.
+
+Chain data lives in `app-data/.../data/` on the host and survives app updates and
+restarts. Only uninstalling the app removes it.
 
 ## Verifying from inside the Umbrel
 
 ```sh
-docker exec longstreet-litecoin_litecoind_1 litecoin-cli -datadir=/data/.litecoin getblockchaininfo
-docker exec longstreet-dogecoin_dogecoind_1 dogecoin-cli -datadir=/data/.dogecoin createauxblock <DOGE_ADDRESS>
+docker exec longstreet-litecoin_litecoind_1 litecoin-cli -conf=/tmp/litecoin.conf -datadir=/data/.litecoin getblockchaininfo
+docker exec longstreet-dogecoin_dogecoind_1 dogecoin-cli -conf=/tmp/dogecoin.conf -datadir=/data/.dogecoin createauxblock <DOGE_ADDRESS>
 ```
 
 ## Notes
+
+- `-conf=/tmp/<coin>.conf` in the commands above points at the runtime config that
+  `entrypoint.sh` assembles; it carries the RPC credentials, so `-cli` works without
+  pasting a password.
 
 - RPC and ZMQ are reachable only on Umbrel's internal app network (`10.21.0.0/16`).
   Only the P2P ports are published to the LAN, and nothing needs to be forwarded from WAN.

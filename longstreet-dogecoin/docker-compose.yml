@@ -13,13 +13,17 @@ services:
     user: "1000:1000"
     volumes:
       - ${APP_DATA_DIR}/data/dogecoin:/data/.dogecoin
-      - ${APP_DATA_DIR}/dogecoin.conf:/data/.dogecoin/dogecoin.conf:ro
+      - ${APP_DATA_DIR}/dogecoin.conf:/etc/dogecoin/dogecoin.conf:ro
+      - ${APP_DATA_DIR}/entrypoint.sh:/entrypoint.sh:ro
     ports:
       - "${APP_LONGSTREET_DOGECOIN_P2P_PORT}:${APP_LONGSTREET_DOGECOIN_P2P_PORT}"   # inbound peers (optional)
+    environment:
+      DAEMON: dogecoind
+      DATADIR: /data/.dogecoin
+      RPC_USER: ${APP_LONGSTREET_DOGECOIN_RPC_USER}
+      RPC_PASS: ${APP_LONGSTREET_DOGECOIN_RPC_PASS}
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
     command:
-      - -datadir=/data/.dogecoin
-      - -rpcuser=${APP_LONGSTREET_DOGECOIN_RPC_USER}
-      - -rpcpassword=${APP_LONGSTREET_DOGECOIN_RPC_PASS}
       - -rpcport=${APP_LONGSTREET_DOGECOIN_RPC_PORT}
       - -port=${APP_LONGSTREET_DOGECOIN_P2P_PORT}
       - -zmqpubhashblock=tcp://0.0.0.0:${APP_LONGSTREET_DOGECOIN_ZMQ_HASHBLOCK_PORT}

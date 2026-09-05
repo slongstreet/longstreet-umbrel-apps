@@ -13,13 +13,17 @@ services:
     user: "1000:1000"
     volumes:
       - ${APP_DATA_DIR}/data/litecoin:/data/.litecoin
-      - ${APP_DATA_DIR}/litecoin.conf:/data/.litecoin/litecoin.conf:ro
+      - ${APP_DATA_DIR}/litecoin.conf:/etc/litecoin/litecoin.conf:ro
+      - ${APP_DATA_DIR}/entrypoint.sh:/entrypoint.sh:ro
     ports:
       - "${APP_LONGSTREET_LITECOIN_P2P_PORT}:${APP_LONGSTREET_LITECOIN_P2P_PORT}"   # inbound peers (optional)
+    environment:
+      DAEMON: litecoind
+      DATADIR: /data/.litecoin
+      RPC_USER: ${APP_LONGSTREET_LITECOIN_RPC_USER}
+      RPC_PASS: ${APP_LONGSTREET_LITECOIN_RPC_PASS}
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
     command:
-      - -datadir=/data/.litecoin
-      - -rpcuser=${APP_LONGSTREET_LITECOIN_RPC_USER}
-      - -rpcpassword=${APP_LONGSTREET_LITECOIN_RPC_PASS}
       - -rpcport=${APP_LONGSTREET_LITECOIN_RPC_PORT}
       - -port=${APP_LONGSTREET_LITECOIN_P2P_PORT}
       - -zmqpubhashblock=tcp://0.0.0.0:${APP_LONGSTREET_LITECOIN_ZMQ_HASHBLOCK_PORT}
