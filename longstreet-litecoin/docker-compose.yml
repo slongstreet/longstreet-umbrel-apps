@@ -7,7 +7,7 @@ services:
       APP_PORT: 8080
 
   litecoind:
-    image: ghcr.io/slongstreet/litecoind:0.21.5.6@sha256:d9cda869ad3d43bfad05e5d59f09a1fe328d20ccce871e7e2f5fb230ad951bb7
+    image: ghcr.io/slongstreet/litecoind:0.21.5.6@sha256:6a7e78ec80d12b0c00821b4c4dd4cc9d890abe9b02883276f77d5f533e5ebe74
     restart: on-failure
     stop_grace_period: 15m          # litecoind flushes dbcache on shutdown; do not cut it short
     user: "1000:1000"
