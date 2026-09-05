@@ -1,0 +1,65 @@
+name: Build node images
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "images/**"
+      - ".github/workflows/build-images.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write        # lets GITHUB_TOKEN push to ghcr.io/<owner>/*
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # TODO: pin the versions you want and paste the SHA256 of the
+          # x86_64-linux-gnu tarball from each project's signed SHA256SUMS.asc.
+          - name: litecoind
+            version: "0.21.4"
+            sha256: "TODO"
+          - name: dogecoind
+            version: "1.14.9"
+            sha256: "TODO"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # GHCR requires a lowercase namespace; GitHub handles may not be.
+      - id: owner
+        run: echo "lc=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: images/${{ matrix.name }}
+          platforms: linux/amd64
+          push: true
+          provenance: false          # plain image manifest -> simple digest to pin
+          build-args: |
+            VERSION=${{ matrix.version }}
+            SHA256=${{ matrix.sha256 }}
+          tags: |
+            ghcr.io/${{ steps.owner.outputs.lc }}/${{ matrix.name }}:${{ matrix.version }}
+            ghcr.io/${{ steps.owner.outputs.lc }}/${{ matrix.name }}:latest
+
+      - name: Print the line to pin in docker-compose.yml
+        run: |
+          {
+            echo "### ${{ matrix.name }} ${{ matrix.version }}"
+            echo
+            echo '```'
+            echo "image: ghcr.io/${{ steps.owner.outputs.lc }}/${{ matrix.name }}:${{ matrix.version }}@${{ steps.build.outputs.digest }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
