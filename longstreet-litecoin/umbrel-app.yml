@@ -2,7 +2,7 @@ manifestVersion: 1
 id: longstreet-litecoin
 category: bitcoin
 name: Litecoin Node
-version: "0.21.4"   # TODO: match the Litecoin Core version baked into the image
+version: "0.21.5.6"
 tagline: Run your own Litecoin Core full node
 description: >-
   Litecoin Core full node with RPC and ZMQ block notifications exposed to other
