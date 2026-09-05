@@ -7,7 +7,7 @@ services:
       APP_PORT: 8080
 
   dogecoind:
-    image: ghcr.io/slongstreet/dogecoind:1.14.9
+    image: ghcr.io/slongstreet/dogecoind:1.14.9@sha256:aa9468d0e49274b9213715d8ec2070e9bceba1977da0e0e2f41c2695dc98edf5
     restart: on-failure
     stop_grace_period: 15m
     user: "1000:1000"
