@@ -29,6 +29,19 @@ To ship any other change (status page, `.conf`, ports): bump `version` yourself
 and update `releaseNotes` in `umbrel-app.yml`. umbrelOS re-reads community stores
 periodically and pulls the newly pinned images when the user accepts the update.
 
+### Upstream Core releases are discovered automatically
+
+`.github/workflows/check_core_updates.yml` runs daily (or on demand from the Actions
+tab). It asks GitHub for the latest Litecoin/Dogecoin Core release, downloads the
+upstream `SHA256SUMS.asc`, and verifies its PGP signature against the keys pinned in
+`keys/`. Only then does it take the tarball checksum and open a pull request updating
+`images/<name>/version.env` and the app's `releaseNotes`. Review the upstream release
+notes, merge, and the build-and-pin flow above does the rest. If a release is signed
+by an unknown key the check fails instead of opening a PR; see `keys/README.md`.
+
+Run the same check locally with `scripts/check-core-updates.sh --dry-run` (needs
+`curl`, `gpg`, `jq`).
+
 ## First-time setup
 
 1. Check that the `port:` values in each `umbrel-app.yml` and the `10.21.42.x` IPs in

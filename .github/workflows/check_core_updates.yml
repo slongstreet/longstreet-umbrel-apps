@@ -1,0 +1,63 @@
+name: Check for Core updates
+
+# Daily: look for new Litecoin/Dogecoin Core releases, verify the upstream
+# SHA256SUMS.asc against the signing keys pinned in keys/, and open a PR that
+# updates images/<name>/version.env. Merging the PR triggers the normal
+# build -> pin -> version bump flow in build_images.yml.
+#
+# Repo setting required once: Settings -> Actions -> General ->
+# "Allow GitHub Actions to create and approve pull requests".
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: check
+        name: Check upstream releases (PGP-verified)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/check-core-updates.sh
+
+      - name: Open or update pull request
+        if: steps.check.outputs.updated != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPDATED: ${{ steps.check.outputs.updated }}
+        run: |
+          set -euo pipefail
+          branch="core-updates"
+          title="Update Core:"
+          body="Automated upstream check. Checksums were taken from each project's \`SHA256SUMS.asc\` after verifying its PGP signature against the keys pinned in \`keys/\`."$'\n\n'
+          while read -r name old new url; do
+            [ -n "$name" ] || continue
+            title="$title $name $new,"
+            body="$body- **$name** $old -> $new ($url)"$'\n'
+          done <<< "$UPDATED"
+          title=${title%,}
+          body="$body"$'\n'"Merging triggers the build-and-pin workflow, which publishes the images, pins their digests and bumps the app versions so umbrelOS offers the update."
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+          git add images/*/version.env longstreet-*/umbrel-app.yml
+          git commit -m "$title"
+          git push --force origin "$branch"
+
+          if gh pr view "$branch" --json number -q .number >/dev/null 2>&1; then
+            gh pr edit "$branch" --title "$title" --body "$body"
+            echo "Updated existing PR."
+          else
+            gh pr create --base main --head "$branch" --title "$title" --body "$body"
+          fi
+          gh pr view "$branch" --json url -q .url >> "$GITHUB_STEP_SUMMARY"
