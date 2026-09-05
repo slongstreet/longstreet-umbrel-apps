@@ -52,8 +52,22 @@ Run the same check locally with `scripts/check-core-updates.sh --dry-run` (needs
 4. Install **Litecoin Node** first. Watch it over SSH:
    `docker logs -f longstreet-litecoin_litecoind_1`. Open the app tile for the sync dashboard.
 5. Install **Dogecoin Node**. It syncs slower than Litecoin — that's expected.
-6. After both report `initialblockdownload: false`, lower `dbcache` (~450) via a
-   local override file (next section) and restart the apps to give RAM back to the box.
+6. That's it. Each node runs with `dbcache=1536` during the initial sync and restarts
+   itself once with `dbcache=450` when the sync finishes (see next section).
+
+## Automatic dbcache
+
+`dbcache` caps the in-memory UTXO cache. A big cache makes the initial sync much
+faster (fewer flushes to disk) but is wasted RAM afterwards, so `entrypoint.sh`
+handles it: the daemon starts with `DBCACHE_IBD` (1536 MiB); a watcher polls
+`getblockchaininfo` once a minute and, when `initialblockdownload` turns false,
+writes `data/<coin>/.synced`, stops the node cleanly and relaunches it with
+`DBCACHE_SYNCED` (450 MiB). Later starts see the marker and use the small cache
+directly. Delete the marker to get the large cache back for a long catch-up.
+
+To take manual control, set `dbcache=` in `<coin>.local.conf`; that value wins and
+the automation stays off. Both limits can also be changed via the `DBCACHE_IBD` /
+`DBCACHE_SYNCED` environment variables in `docker-compose.yml`.
 
 ## Local configuration overrides
 
@@ -68,7 +82,7 @@ echo "dbcache=450" >> ~/umbrel/app-data/longstreet-dogecoin/data/dogecoin/dogeco
 ```
 
 then restart the app. `entrypoint.sh` assembles the runtime config as
-*your overrides* + *shipped conf* + *RPC credentials*. Core keeps the first value it
+*your overrides* + *dbcache* + *shipped conf* + *RPC credentials*. Core keeps the first value it
 sees for an option, so anything in the local file wins. (Dogecoin 1.14 predates
 `includeconf`, which is why it's done this way for both.)
 
