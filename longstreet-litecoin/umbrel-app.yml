@@ -10,6 +10,7 @@ description: >-
   disabled; this node is for validation and block-template generation.
 developer: Longstreet Labs
 website: https://github.com/slongstreet/longstreet-umbrel-apps
+icon: https://github.com/slongstreet/longstreet-umbrel-apps/tree/main/longstreet-litecoin/icon.svg
 dependencies: []
 repo: https://github.com/slongstreet/longstreet-umbrel-apps
 support: https://github.com/slongstreet/longstreet-umbrel-apps/issues

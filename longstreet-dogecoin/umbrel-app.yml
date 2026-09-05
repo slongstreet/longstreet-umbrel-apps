@@ -10,6 +10,7 @@ description: >-
   merged mining alongside the Litecoin Node app. Wallet is disabled.
 developer: Longstreet Labs
 website: https://github.com/slongstreet/longstreet-umbrel-apps
+icon: https://github.com/slongstreet/longstreet-umbrel-apps/tree/main/longstreet-dogecoin/icon.svg
 dependencies: []
 repo: https://github.com/slongstreet/longstreet-umbrel-apps
 support: https://github.com/slongstreet/longstreet-umbrel-apps/issues
