@@ -44,6 +44,61 @@ by an unknown key the check fails instead of opening a PR; see `keys/README.md`.
 Run the same check locally with `scripts/check-core-updates.sh --dry-run` (needs
 `curl`, `gpg`, `jq`).
 
+### What is automatic and what is not
+
+| Step | Automatic? | Done by |
+|---|---|---|
+| Detect a new Core release, PGP-verify its checksum, update `version.env`, `releaseNotes` and the app version | yes, daily at 06:17 UTC | `check_core_updates.yml` → `scripts/check-core-updates.sh` |
+| Open or refresh a PR on branch `core-updates` | yes | same workflow |
+| **Review the upstream release notes and merge the PR** | **no — you** | — |
+| Build `ghcr.io/<owner>/<name>:<VERSION>`, pin its digest into `docker-compose.yml`, push to `main` | yes, on merge | `build_images.yml` |
+| Offer the update on the Umbrel | yes | umbrelOS polls this repo periodically |
+| Install the update | no — you click **Update** on the app tile | — |
+
+The PR merge is the only gate between upstream shipping a release and your Umbrel
+offering it. It is deliberate: this is consensus-critical software, and the PR is
+your chance to read the release notes first.
+
+Two one-time repo settings the automatic parts depend on:
+
+- **Settings → Actions → General → "Allow GitHub Actions to create and approve pull
+  requests"**, or the daily check cannot open the PR.
+- The GHCR packages must be **public**, or umbrelOS cannot pull the images.
+
+#### Optional: auto-merge the update PR
+
+If you would rather have it fully hands-off, two changes make the daily check merge
+its own PR once the build passes:
+
+1. **Settings → General → Pull Requests → enable "Allow auto-merge".** Auto-merge
+   only fires when required checks pass, so also add a branch protection rule on
+   `main` (Settings → Branches) requiring the `build` job from **Build node images**.
+   Without a required check, auto-merge merges immediately.
+2. In `.github/workflows/check_core_updates.yml`, after the `gh pr create` /
+   `gh pr edit` lines, add:
+
+   ```sh
+   gh pr merge "$branch" --auto --squash
+   ```
+
+   `GITHUB_TOKEN` can enable auto-merge, but merges made with it do not trigger
+   other workflows — so the build-and-pin run on `main` would **not** start. To get
+   around that, create a fine-grained personal access token (repo scope: contents
+   and pull requests, read/write), store it as a repository secret (for example
+   `RELEASE_PAT`), and use it for the merge step instead of `GITHUB_TOKEN`:
+
+   ```yaml
+   env:
+     GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+   ```
+
+   Alternatively keep `GITHUB_TOKEN` and add `pull_request: types: [closed]` to
+   `build_images.yml` so the merge itself triggers the build; that is more moving
+   parts, so the PAT is the simpler route.
+
+Reverting is just removing the `gh pr merge --auto` line; the PR then waits for you
+again.
+
 ## First-time setup
 
 1. Check that the `port:` values in each `umbrel-app.yml` and the `10.21.42.x` IPs in
