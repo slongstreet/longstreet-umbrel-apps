@@ -9,7 +9,7 @@ description: >-
   apps on this Umbrel (for example a merged-mining Stratum server). Wallet is
   disabled; this node is for validation and block-template generation.
 releaseNotes: >-
-  Litecoin Core 0.21.5.6. Lower memory use during sync by capping glibc malloc arenas. Also disables the block filter index, which only serves light wallets and slowed the initial sync.
+  Litecoin Core 0.21.5.8. Lower memory use during sync by capping glibc malloc arenas. Also disables the block filter index, which only serves light wallets and slowed the initial sync.
 developer: Longstreet Labs
 website: https://github.com/slongstreet/longstreet-umbrel-apps
 icon: https://raw.githubusercontent.com/slongstreet/longstreet-umbrel-apps/refs/heads/main/longstreet-litecoin/icon.svg
