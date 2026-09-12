@@ -39,8 +39,10 @@ services:
     user: "1000:1000"
     volumes:
       - ${APP_DATA_DIR}/status:/app:ro
+      - ${APP_DATA_DIR}/data/dogecoin:/node:ro
     environment:
       COIN_NAME: Dogecoin
+      NODE_START_FILE: /node/.started
       RPC_URL: http://${APP_LONGSTREET_DOGECOIN_NODE_IP}:${APP_LONGSTREET_DOGECOIN_RPC_PORT}
       RPC_USER: ${APP_LONGSTREET_DOGECOIN_RPC_USER}
       RPC_PASS: ${APP_LONGSTREET_DOGECOIN_RPC_PASS}

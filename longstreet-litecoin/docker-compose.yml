@@ -39,8 +39,10 @@ services:
     user: "1000:1000"
     volumes:
       - ${APP_DATA_DIR}/status:/app:ro
+      - ${APP_DATA_DIR}/data/litecoin:/node:ro
     environment:
       COIN_NAME: Litecoin
+      NODE_START_FILE: /node/.started
       RPC_URL: http://${APP_LONGSTREET_LITECOIN_NODE_IP}:${APP_LONGSTREET_LITECOIN_RPC_PORT}
       RPC_USER: ${APP_LONGSTREET_LITECOIN_RPC_USER}
       RPC_PASS: ${APP_LONGSTREET_LITECOIN_RPC_PASS}

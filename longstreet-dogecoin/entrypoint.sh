@@ -75,6 +75,7 @@ while :; do
   fi
   write_conf "$cache"
 
+  touch "$DATADIR/.started"        # launch time; the status page reads it when Core has no uptime RPC
   "$DAEMON" -conf="$conf" -datadir="$DATADIR" "$@" &
   pid=$!
   if [ -n "$auto" ]; then watch_sync & watcher=$!; fi

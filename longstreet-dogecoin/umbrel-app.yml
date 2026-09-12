@@ -2,14 +2,14 @@ manifestVersion: 1
 id: longstreet-dogecoin
 category: bitcoin
 name: Dogecoin Node
-version: "1.2.1"
+version: "1.2.2"
 tagline: Run your own Dogecoin Core full node
 description: >-
   Dogecoin Core full node with RPC and ZMQ block notifications exposed to other
   apps on this Umbrel. Provides createauxblock / submitauxblock for AuxPoW
   merged mining alongside the Litecoin Node app. Wallet is disabled.
 releaseNotes: >-
-  Dogecoin Core 1.14.9. Lower memory use during sync by capping glibc malloc arenas.
+  Dogecoin Core 1.14.9. The status page now shows node uptime (Dogecoin Core lacks the uptime RPC, so the node records its start time instead), and the best block hash links to dogechain.info so you can confirm your node is on the same chain as the network.
 developer: Longstreet Labs
 website: https://github.com/slongstreet/longstreet-umbrel-apps
 icon: https://raw.githubusercontent.com/slongstreet/longstreet-umbrel-apps/refs/heads/main/longstreet-dogecoin/icon.svg

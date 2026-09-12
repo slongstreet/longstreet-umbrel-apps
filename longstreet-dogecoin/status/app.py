@@ -13,7 +13,15 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 COIN = os.environ.get("COIN_NAME", "Node")
 TICKER = os.environ.get("COIN_TICKER") or {"Litecoin": "LTC", "Dogecoin": "DOGE"}.get(COIN, "")
 ACCENT = os.environ.get("ACCENT") or {"Litecoin": "#5b8def", "Dogecoin": "#e3b93a"}.get(COIN, "#7c8cf8")
+# Block explorer URL prefix; the best block hash is appended. Empty disables the link.
+EXPLORER = os.environ.get("EXPLORER_BLOCK_URL") or {
+    "Litecoin": "https://litecoinspace.org/block/",
+    "Dogecoin": "https://dogechain.info/block/",
+}.get(COIN, "")
 RPC_URL = os.environ["RPC_URL"]
+# Touched by entrypoint.sh at each daemon launch. Dogecoin Core 1.14 (a Bitcoin
+# Core 0.14 descendant) predates the uptime RPC, so its mtime stands in.
+START_FILE = os.environ.get("NODE_START_FILE", "")
 AUTH = base64.b64encode(
     f"{os.environ['RPC_USER']}:{os.environ['RPC_PASS']}".encode()
 ).decode()
@@ -77,6 +85,11 @@ def snapshot():
         up = rpc("uptime")
     except Exception:  # noqa: BLE001 - older cores lack this RPC
         up = None
+        if START_FILE:
+            try:
+                up = max(0, int(time.time() - os.stat(START_FILE).st_mtime))
+            except OSError:
+                pass
     progress = b.get("verificationprogress", 0)
     ibd = bool(b.get("initialblockdownload"))
     if not ibd and progress > 0.9999:
@@ -149,6 +162,8 @@ h1{margin:0;font-size:1.45rem;font-weight:700;letter-spacing:-.01em}
 .card .v{font-size:1.45rem;font-weight:700;margin-top:.2rem;font-variant-numeric:tabular-nums;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card .s{color:var(--muted);font-size:.82rem;margin-top:.1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.85rem}
+.mono a{color:inherit;text-decoration:none;border-bottom:1px dotted var(--muted)}
+.mono a:hover{color:var(--accent);border-bottom-color:var(--accent)}
 .err{display:none;background:color-mix(in srgb,var(--bad) 12%,var(--card));border:1px solid color-mix(in srgb,var(--bad) 45%,transparent);border-radius:14px;padding:1rem 1.1rem;margin-bottom:1rem}
 .err b{color:var(--bad)}
 .err code{color:var(--muted);font-size:.85rem;display:block;margin-top:.3rem;word-break:break-all}
@@ -185,7 +200,7 @@ footer{color:var(--muted);font-size:.8rem;margin-top:1.5rem;display:flex;justify
   <div class="card"><div class="k">Uptime</div><div class="v" id="uptime">—</div><div class="s" id="uptimesub"></div></div>
   <div class="card"><div class="k">Difficulty</div><div class="v" id="diff">—</div><div class="s">network</div></div>
   <div class="card"><div class="k">Last block</div><div class="v" id="age">—</div><div class="s" id="agesub"></div></div>
-  <div class="card" style="grid-column:1/-1"><div class="k">Best block hash</div><div class="v mono" id="best">—</div></div>
+  <div class="card" style="grid-column:1/-1"><div class="k">Best block hash</div><div class="v mono" id="best">—</div><div class="s" id="bestsub"></div></div>
 </section>
 
 <footer><span>Updates every 10 s</span><span id="stamp"></span></footer>
@@ -193,6 +208,7 @@ footer{color:var(--muted);font-size:.8rem;margin-top:1.5rem;display:flex;justify
 
 <script>
 const $ = id => document.getElementById(id);
+const EXPLORER = "__EXPLORER__";
 const n = x => x == null ? "—" : Number(x).toLocaleString();
 const gb = b => (b/1e9).toFixed(b < 1e10 ? 2 : 1) + " GB";
 const mb = b => b < 1e6 ? (b/1e3).toFixed(0)+" kB" : (b/1e6).toFixed(1)+" MB";
@@ -236,7 +252,15 @@ async function tick(){
     $("diff").textContent = d.difficulty ? compact(d.difficulty) : "—";
     $("age").textContent = d.mediantime ? ago(d.mediantime) + " ago" : "—";
     $("agesub").textContent = d.mediantime ? "median time past" : "";
-    $("best").textContent = d.best || "—";
+    if(d.best && EXPLORER){
+      const a = document.createElement("a");
+      a.href = EXPLORER + d.best; a.target = "_blank"; a.rel = "noopener"; a.textContent = d.best;
+      $("best").replaceChildren(a);
+      $("bestsub").textContent = "open in " + new URL(EXPLORER).hostname;
+    }else{
+      $("best").textContent = d.best || "—";
+      $("bestsub").textContent = "";
+    }
     $("stamp").textContent = "Updated " + new Date().toLocaleTimeString();
   }catch(e){
     document.body.classList.add("down");
@@ -248,7 +272,8 @@ tick(); setInterval(tick, 10000);
 </script>
 </body></html>
 """
-PAGE = PAGE.replace("__COIN__", COIN).replace("__TICKER__", TICKER or COIN[:3].upper()).replace("__ACCENT__", ACCENT)
+PAGE = (PAGE.replace("__COIN__", COIN).replace("__TICKER__", TICKER or COIN[:3].upper())
+        .replace("__ACCENT__", ACCENT).replace("__EXPLORER__", EXPLORER))
 
 
 class H(BaseHTTPRequestHandler):
