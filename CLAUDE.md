@@ -36,8 +36,11 @@ the push if any file under `longstreet-*/` (other than `.gitkeep`) changed witho
 bump. Bump `version` and update `releaseNotes` in the same commit. The app version is
 independent of the Core version the image ships.
 
-Exception: when you only edit `images/<name>/version.env`, do **not** bump — CI's `pin` job
-does it for you (see below).
+`scripts/check-core-updates.sh` bumps the patch version itself when it rewrites
+`releaseNotes`, so a push straight after running it passes. If you edit *only*
+`images/<name>/version.env` by hand (no manifest change), you may leave the version alone
+and CI's `pin` job bumps it; but any manual touch to `umbrel-app.yml` needs the bump in the
+same push. The `check-versions` job does not gate `build`/`pin` — those run regardless.
 
 ## The two apps are mirrors of each other
 
@@ -55,8 +58,8 @@ difference is genuinely coin-specific (e.g. Litecoin's `blockfilterindex=0`, Dog
    `ASSET`, `SUMS_URLS`, `APP_DIR`, `RELEASE_LABEL` consumed by the update checker.
 2. `.github/workflows/check_core_updates.yml` (daily) runs `scripts/check-core-updates.sh`,
    which verifies upstream `SHA256SUMS.asc` **only** against keys in `keys/<name>/*.asc`
-   and opens/updates a PR on branch `core-updates` editing `version.env` and the
-   `releaseNotes` line matching `RELEASE_LABEL <version>`. An unknown signer fails the check
+   and opens/updates a PR on branch `core-updates` editing `version.env`, the
+   `releaseNotes` line matching `RELEASE_LABEL <version>`, and the app patch version. An unknown signer fails the check
    on purpose — see `keys/README.md` before adding a key.
 3. `.github/workflows/build_images.yml` (every push to `main`) builds
    `ghcr.io/<owner>/<name>:<VERSION>` only if that tag doesn't exist, then the `pin` job

@@ -24,8 +24,10 @@ workflow, which:
 2. Writes the resulting digest into the app's `docker-compose.yml`, bumps the app's
    patch version if this push did not already bump it, and pushes that commit to `main`.
 
-So to ship a new Core release: edit `version.env`, push, and let CI pin and bump.
-To ship any other change (status page, `.conf`, ports): bump `version` yourself
+So to ship a new Core release: run `scripts/check-core-updates.sh` (it updates
+`version.env`, the release notes and the app version), push, and let CI pin. If you edit
+`version.env` by hand instead, CI bumps the version for you — but only if nothing under the
+app directory changed. To ship any other change (status page, `.conf`, ports): bump `version` yourself
 and update `releaseNotes` in `umbrel-app.yml`. umbrelOS re-reads community stores
 periodically and pulls the newly pinned images when the user accepts the update.
 

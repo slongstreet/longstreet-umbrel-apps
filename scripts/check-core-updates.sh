@@ -83,7 +83,16 @@ for name in "${NAMES[@]}"; do
   if [ "$DRY_RUN" = 1 ]; then continue; fi
   sed -i.bak -E "s/^VERSION=.*/VERSION=$latest/; s/^SHA256=.*/SHA256=$sha/" "$env_file" && rm -f "$env_file.bak"
   if [ -n "${APP_DIR:-}" ] && [ -n "${RELEASE_LABEL:-}" ] && [ -f "$APP_DIR/umbrel-app.yml" ]; then
-    sed -i.bak -E "s/$RELEASE_LABEL [0-9]+(\.[0-9]+)*/$RELEASE_LABEL $latest/" "$APP_DIR/umbrel-app.yml" && rm -f "$APP_DIR/umbrel-app.yml.bak"
+    manifest="$APP_DIR/umbrel-app.yml"
+    sed -i.bak -E "s/$RELEASE_LABEL [0-9]+(\.[0-9]+)*/$RELEASE_LABEL $latest/" "$manifest"
+    # Editing the manifest counts as an app change, so bump the patch version here;
+    # otherwise the check-versions job rejects the push. The pin job sees the bump
+    # and leaves the version alone.
+    cur=$(sed -n 's/^version: *"\{0,1\}\([^" #]*\)"\{0,1\}.*/\1/p' "$manifest")
+    next=$(echo "$cur" | awk -F. '{ $NF = $NF + 1; print }' OFS=.)
+    sed -i.bak -E "s/^version: *\"?[^\" #]+\"?/version: \"$next\"/" "$manifest"
+    rm -f "$manifest.bak"
+    echo "$name:   $APP_DIR version $cur -> $next"
   fi
   UPDATED+=("$name $VERSION $latest https://github.com/$UPSTREAM_REPO/releases/tag/v$latest")
   echo "$name: updated $env_file"
