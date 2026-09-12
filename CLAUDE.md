@@ -45,7 +45,7 @@ same push. The `check-versions` job does not gate `build`/`pin` — those run re
 ## The two apps are mirrors of each other
 
 `longstreet-litecoin/` and `longstreet-dogecoin/` are deliberately parallel. Right now
-`entrypoint.sh` and `status/app.py` are byte-identical between them (verify with `diff`);
+`entrypoint.sh`, `status/app.py` and `hooks/pre-start` are byte-identical between them (verify with `diff`);
 `docker-compose.yml`, `exports.sh`, `<coin>.conf`, and `umbrel-app.yml` differ only in coin
 names, IPs, ports, and coin-specific conf lines. The same goes for `images/litecoind/` vs
 `images/dogecoind/`. **When changing one, make the matching change in the other** unless the
@@ -90,8 +90,16 @@ in `umbrel-app.yml` is parsed by regex in both workflows; keep it quoted and on 
   `DBCACHE_SYNCED` (450). A `dbcache=` in the local conf disables the automation. The
   signal-trap/`wait` dance at the bottom exists so a SIGTERM from Docker is forwarded and the
   daemon's real exit code is returned.
-- **`<coin>.conf`**: shipped defaults; overwritten on every app update, so never tell users to
-  edit it — point them at `<coin>.local.conf` in the data dir.
+- **`<coin>.conf`**: shipped defaults; overwritten at every app start by the hook below, so
+  never tell users to edit it — point them at `<coin>.local.conf` in the data dir.
+- **`hooks/pre-start`**: umbrelOS app updates only re-copy `docker-compose.yml`, `exports.sh`,
+  `umbrel-app.yml`, `*.template`, `torrc` and `hooks/` from the store checkout into
+  `app-data` (see `UPDATE_FILES_WHITELIST_*` in umbreld's legacy `app-script`); everything
+  else is copied on install only. This hook, run by umbreld before every start with
+  `SCRIPT_APP_REPO_DIR` set to the store checkout, copies `entrypoint.sh`, `status/` and
+  `<coin>.conf` over — but only when the checkout's `version:` equals the installed one, so a
+  store refresh the user hasn't accepted can't leak into a restart. Any new bind-mounted
+  file must be added to this hook or it will never reach existing installs.
 - **`status/app.py`**: single-file `http.server` app; `/` serves inline HTML that polls `/api`.
   Includes a background sampler that extrapolates a sync ETA from `verificationprogress`.
   Must stay stdlib-only (stock alpine image, no pip step).

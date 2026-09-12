@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Refresh the files umbrelOS does not re-copy on app update.
+#
+# An app update only copies docker-compose.yml, exports.sh, umbrel-app.yml,
+# *.template, torrc and hooks/ from the store checkout into app-data (see
+# UPDATE_FILES_WHITELIST_* in umbreld's legacy app-script). entrypoint.sh,
+# status/ and <coin>.conf are copied on install only, so without this hook an
+# updated app keeps running the code it was first installed with. umbreld runs
+# this before every start, after the whitelist copy, with SCRIPT_APP_REPO_DIR
+# pointing at the store checkout of this app.
+#
+# Only sync when the checkout carries the version umbreld just installed:
+# umbrelOS re-fetches community stores on its own, so a plain restart must not
+# pull in files from a release the user has not accepted yet.
+set -euo pipefail
+
+app_data_dir="$(cd "$(dirname "$0")/.." && pwd)"
+app_repo_dir="${SCRIPT_APP_REPO_DIR:-}"
+
+if [[ -z "$app_repo_dir" || ! -d "$app_repo_dir" ]]; then
+  echo "pre-start: no store checkout available, keeping current files" >&2
+  exit 0
+fi
+
+version() { sed -n 's/^version:[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}.*/\1/p' "$1/umbrel-app.yml"; }
+installed="$(version "$app_data_dir")"
+available="$(version "$app_repo_dir")"
+if [[ -z "$installed" || "$installed" != "$available" ]]; then
+  echo "pre-start: store has ${available:-?}, installed is ${installed:-?}; keeping current files" >&2
+  exit 0
+fi
+
+echo "pre-start: syncing app files for $installed from $app_repo_dir"
+cp --archive "$app_repo_dir/entrypoint.sh" "$app_data_dir/entrypoint.sh"
+cp --archive "$app_repo_dir"/*.conf "$app_data_dir/"
+mkdir -p "$app_data_dir/status"
+cp --archive "$app_repo_dir/status/." "$app_data_dir/status/"

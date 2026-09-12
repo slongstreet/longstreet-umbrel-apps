@@ -128,9 +128,11 @@ the automation stays off. Both limits can also be changed via the `DBCACHE_IBD` 
 
 ## Local configuration overrides
 
-App updates copy every file in this repo over the app's directory on the Umbrel, so
-edits to `litecoin.conf` / `dogecoin.conf` there are lost on the next update. Put your
-own settings in the data directory instead, which is never touched:
+`hooks/pre-start` copies `entrypoint.sh`, `status/` and `litecoin.conf` /
+`dogecoin.conf` from this repo over the app's directory on the Umbrel at every start
+(umbrelOS itself only refreshes `docker-compose.yml`, `exports.sh`, `umbrel-app.yml`
+and `hooks/` on update), so edits to those files there are lost. Put your own
+settings in the data directory instead, which is never touched:
 
 ```sh
 # on the Umbrel
