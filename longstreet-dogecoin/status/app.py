@@ -25,6 +25,12 @@ START_FILE = os.environ.get("NODE_START_FILE", "")
 AUTH = base64.b64encode(
     f"{os.environ['RPC_USER']}:{os.environ['RPC_PASS']}".encode()
 ).decode()
+_FAVICON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "favicon.svg")
+try:
+    with open(_FAVICON_PATH, "rb") as _f:
+        _FAVICON = _f.read()
+except OSError:
+    _FAVICON = b""
 
 
 def rpc(method, params=None):
@@ -122,6 +128,7 @@ PAGE = r"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>__COIN__ node</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <style>
 :root{--accent:__ACCENT__;--bg:#0b0e14;--card:#131826;--card2:#182036;--text:#e8ecf4;--muted:#8a93a8;--ok:#3ddc84;--warn:#f5b342;--bad:#ff5c6c;--line:#222a3d}
 *{box-sizing:border-box}
@@ -293,6 +300,11 @@ class H(BaseHTTPRequestHandler):
             except Exception as e:  # noqa: BLE001
                 payload = {"ok": False, "error": str(e)}
             self._send(json.dumps(payload).encode(), "application/json")
+        elif path.endswith("/favicon.svg") or path.endswith("/favicon.ico"):
+            if not _FAVICON:
+                self.send_error(404)
+                return
+            self._send(_FAVICON, "image/svg+xml")
         else:
             self._send(PAGE.encode(), "text/html; charset=utf-8")
 

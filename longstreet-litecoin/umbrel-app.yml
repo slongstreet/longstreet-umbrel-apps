@@ -2,14 +2,14 @@ manifestVersion: 1
 id: longstreet-litecoin
 category: bitcoin
 name: Litecoin Node
-version: "1.2.5"
+version: "1.2.6"
 tagline: Run your own Litecoin Core full node
 description: >-
   Litecoin Core full node with RPC and ZMQ block notifications exposed to other
   apps on this Umbrel (for example a merged-mining Stratum server). Wallet is
   disabled; this node is for validation and block-template generation.
 releaseNotes: >-
-  Litecoin Core 0.21.5.8. Lower steady-state memory use: smaller mempool cap, fewer inbound peers and glibc tuned to return freed memory to the system. Validation, RPC, ZMQ and block template building are unchanged. Existing overrides in litecoin.local.conf still take precedence.
+  Status page favicon.
 developer: Longstreet Labs
 website: https://github.com/slongstreet/longstreet-umbrel-apps
 icon: https://raw.githubusercontent.com/slongstreet/longstreet-umbrel-apps/refs/heads/main/longstreet-litecoin/icon.svg
