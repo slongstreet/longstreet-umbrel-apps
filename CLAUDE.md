@@ -80,7 +80,10 @@ in `umbrel-app.yml` is parsed by regex in both workflows; keep it quoted and on 
   chainstate.
 - **`exports.sh`**: sourced by umbreld; defines `APP_LONGSTREET_<COIN>_*` (IPs, RPC/P2P/ZMQ
   ports, RPC creds). These are the public contract for dependent apps. The RPC password is
-  `sha256(APP_SEED + "<coin>-rpc")[:32]`, so it's stable and never committed.
+  generated once with `openssl rand` and persisted to `${EXPORTS_APP_DIR}/.env`, which is
+  sourced on every read. Never derive it from `$APP_SEED`: umbreld sources a dependency's
+  exports.sh inside the dependent app's environment, where `APP_SEED` differs, so the node
+  and its consumers would disagree on the password.
 - **`entrypoint.sh`**: assembles `/tmp/<coin>.conf` at start from, in order,
   `$DATADIR/<coin>.local.conf` (user overrides, survives updates) → `dbcache=` → shipped
   `/etc/<coin>/<coin>.conf` → `rpcuser/rpcpassword`. Core keeps the *first* value it sees, so
