@@ -2,14 +2,16 @@ manifestVersion: 1
 id: longstreet-dogecoin
 category: bitcoin
 name: Dogecoin Node
-version: "1.2.5"
+version: "1.2.6"
 tagline: Run your own Dogecoin Core full node
 description: >-
   Dogecoin Core full node with RPC and ZMQ block notifications exposed to other
   apps on this Umbrel. Provides createauxblock / submitauxblock for AuxPoW
   merged mining alongside the Litecoin Node app. Wallet is disabled.
 releaseNotes: >-
-  Status page favicon.
+  Fix the RPC password handed to dependent apps such as Alamo: it is now generated once
+  and stored in the app data directory instead of derived from a per-app seed, which
+  produced a different value for each app that read it.
 developer: Longstreet Labs
 website: https://github.com/slongstreet/longstreet-umbrel-apps
 icon: https://raw.githubusercontent.com/slongstreet/longstreet-umbrel-apps/refs/heads/main/longstreet-dogecoin/icon.svg

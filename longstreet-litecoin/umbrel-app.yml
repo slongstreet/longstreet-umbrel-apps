@@ -2,14 +2,16 @@ manifestVersion: 1
 id: longstreet-litecoin
 category: bitcoin
 name: Litecoin Node
-version: "1.2.6"
+version: "1.2.7"
 tagline: Run your own Litecoin Core full node
 description: >-
   Litecoin Core full node with RPC and ZMQ block notifications exposed to other
   apps on this Umbrel (for example a merged-mining Stratum server). Wallet is
   disabled; this node is for validation and block-template generation.
 releaseNotes: >-
-  Status page favicon.
+  Fix the RPC password handed to dependent apps such as Alamo: it is now generated once
+  and stored in the app data directory instead of derived from a per-app seed, which
+  produced a different value for each app that read it.
 developer: Longstreet Labs
 website: https://github.com/slongstreet/longstreet-umbrel-apps
 icon: https://raw.githubusercontent.com/slongstreet/longstreet-umbrel-apps/refs/heads/main/longstreet-litecoin/icon.svg
